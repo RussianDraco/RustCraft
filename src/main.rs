@@ -12,130 +12,154 @@ fn main() {
         x: f64,
         y: f64,
     }
-    struct Vertice {
-        start: Point3D,
-        end: Point3D,
-    }
-    struct Cube {
-        position: Point3D,
-        vertices: Vec<Vertice>,
-    }
 
-    fn rotate_x(point: &Point3D, rot: f64) -> Point3D {
-        Point3D {
-            x: point.x,
-            y: f64::cos(rot) * point.y - f64::sin(rot) * point.z,
-            z: f64::sin(rot) * point.y + f64::cos(rot) * point.z,
-        }
-    }
-    fn rotate_y(point: &Point3D, rot: f64) -> Point3D {
-        Point3D {
-            x: f64::cos(rot) * point.x - f64::sin(rot) * point.z,
-            y: point.y,
-            z: -f64::sin(rot) * point.x + f64::cos(rot) * point.z,
-        }
-    }
     fn projection(point: &Point3D) -> Point2D {
         Point2D {
-            x: WINDOW_X as f64 / 2.0 + (FOV * point.x) / (FOV + point.z) * 100.0,
-            y: WINDOW_Y as f64 / 2.0 + (FOV * point.y) / (FOV + point.z) * 100.0,
+            x: FOV as f64 * point.x / point.z + (WINDOW_X as f64 / 2.0),
+            y: FOV as f64 * point.y / point.z + (WINDOW_Y as f64 / 2.0),
         }
+    }
+    fn rotate_2d(point: &Point2D, angle: f64) -> Point2D {
+        Point2D {
+            x: point.x * f64::cos(angle) - point.y * f64::sin(angle),
+            y: point.x * f64::sin(angle) + point.y * f64::cos(angle),
+        }
+    }
+    fn rotate_3d(point: &Point3D, camxrot: f64, camyrot: f64) -> Point3D{
+        let rot2d = rotate_2d(&Point2D {x: point.z, y: point.x}, camxrot);
+        let outx = rot2d.y;
+        let rot2d2 = rotate_2d(&Point2D {x: point.y, y: rot2d.x}, camyrot);
+        Point3D {
+            x: outx,
+            y: rot2d2.x,
+            z: rot2d2.y,
+        }
+    }
+    fn draw_line(p1: &Point3D, p2: &Point3D, x: f64, y: f64, z: f64, camxrot: f64, camyrot: f64, context: Context, graphics: &mut G2d) {
+        let mut p1 = rotate_3d(&Point3D { x: p1.x+x, y: p1.y+y, z: p1.z+z }, camxrot, camyrot);
+        let mut p2 = rotate_3d(&Point3D { x: p2.x+x, y: p2.y+y, z: p2.z+z }, camxrot, camyrot);
+
+        if p1.z > ZCLIPDIST || p2.z > ZCLIPDIST {
+            //zclip
+            let zcpercent = (ZCLIPDIST - p1.z) / (p2.z - p1.z);
+            if p1.z < ZCLIPDIST {
+                p1.x = p1.x + (p2.x - p1.x) * zcpercent;
+                p1.y = p1.y + (p2.y - p1.y) * zcpercent;
+                p1.z = ZCLIPDIST;
+            }
+            if p2.z < ZCLIPDIST {
+                p2.x = p1.x + (p2.x - p1.x) * zcpercent;
+                p2.y = p1.y + (p2.y - p1.y) * zcpercent;
+                p2.z = ZCLIPDIST;
+            }
+
+            let p1 = projection(&p1);
+            let p2 = projection(&p2);
+
+            line([0.0, 0.0, 0.0, 1.0], 1.0, [p1.x, p1.y, p2.x, p2.y], context.transform, graphics);
+        }
+    }
+    fn draw_plane(p1: &Point3D, p2: &Point3D, p3: &Point3D, p4: &Point3D, x: f64, y: f64, z: f64, camxrot: f64, camyrot: f64, context: Context, graphics: &mut G2d) {
+        let p1 = rotate_3d(&Point3D { x: p1.x+x, y: p1.y+y, z: p1.z+z }, camxrot, camyrot);
+        let p2 = rotate_3d(&Point3D { x: p2.x+x, y: p2.y+y, z: p2.z+z }, camxrot, camyrot);
+        let p3 = rotate_3d(&Point3D { x: p3.x+x, y: p3.y+y, z: p3.z+z }, camxrot, camyrot);
+        let p4 = rotate_3d(&Point3D { x: p4.x+x, y: p4.y+y, z: p4.z+z }, camxrot, camyrot);
+
+        let p1 = projection(&p1);
+        let p2 = projection(&p2);
+        let p3 = projection(&p3);
+        let p4 = projection(&p4);
+
+        polygon([0.0, 1.0, 0.0, 1.0], &[[p1.x, p1.y], [p2.x, p2.y], [p3.x, p3.y], [p4.x, p4.y]], context.transform, graphics);
+    }
+    fn cube(cube_x: f64, cube_y: f64, cube_z: f64, x: f64, y: f64, z: f64, camxrot: f64, camyrot: f64, context: Context, graphics: &mut G2d) {
+        draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_plane(&Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        
+
+        draw_line(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_line(&Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_line(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_line(&Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+
+        draw_line(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_line(&Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_line(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_line(&Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+
+        draw_line(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_line(&Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_line(&Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        draw_line(&Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
     }
 
     const WINDOW_X: i32 = 640;
     const WINDOW_Y: i32 = 480;
-    const FOV: f64 = 90.0;
+    const FOV: i32 = 400;
+    const ZCLIPDIST: f64 = 3.0;
 
-    let mut window: PistonWindow = WindowSettings::new("Hello Piston!", [WINDOW_X as u32, WINDOW_Y as u32])
+    let mut window: PistonWindow = WindowSettings::new("Rust Craft", [WINDOW_X as u32, WINDOW_Y as u32])
         .exit_on_esc(true).build().unwrap();
 
-    let mut x = 1.0;
-    let mut y = 1.0;
-    let mut rotation = 0.0;
+    let mut x = 0.0;
+    let mut y = 100.0;
+    let mut z = 400.0;
 
+    let mut camxrot = 0.0;
+    let mut camyrot = 0.0;
 
-    let mut all_cubes: Vec<Cube> = Vec::new();
-    let mut cube = Cube {
-        position: Point3D { x: 0.0, y: 0.0, z: 0.0 },
-        vertices: Vec::new(),
-    };
-    cube.vertices = vec![
-        Vertice {
-            start: Point3D { x: -1.0, y: -1.0, z: 1.0 },
-            end: Point3D { x: 1.0, y: -1.0, z: 1.0 },
-        },
-        Vertice {
-            start: Point3D { x: 1.0, y: -1.0, z: 1.0 },
-            end: Point3D { x: 1.0, y: 1.0, z: 1.0 },
-        },
-        Vertice {
-            start: Point3D { x: 1.0, y: 1.0, z: 1.0 },
-            end: Point3D { x: -1.0, y: 1.0, z: 1.0 },
-        },
-        Vertice {
-            start: Point3D { x: -1.0, y: 1.0, z: 1.0 },
-            end: Point3D { x: -1.0, y: -1.0, z: 1.0 },
-        },
-        // Back face
-        Vertice {
-            start: Point3D { x: -1.0, y: -1.0, z: -1.0 },
-            end: Point3D { x: 1.0, y: -1.0, z: -1.0 },
-        },
-        Vertice {
-            start: Point3D { x: 1.0, y: -1.0, z: -1.0 },
-            end: Point3D { x: 1.0, y: 1.0, z: -1.0 },
-        },
-        Vertice {
-            start: Point3D { x: 1.0, y: 1.0, z: -1.0 },
-            end: Point3D { x: -1.0, y: 1.0, z: -1.0 },
-        },
-        Vertice {
-            start: Point3D { x: -1.0, y: 1.0, z: -1.0 },
-            end: Point3D { x: -1.0, y: -1.0, z: -1.0 },
-        },
-        // Connect front and back faces
-        Vertice {
-            start: Point3D { x: -1.0, y: -1.0, z: 1.0 },
-            end: Point3D { x: -1.0, y: -1.0, z: -1.0 },
-        },
-        Vertice {
-            start: Point3D { x: 1.0, y: -1.0, z: 1.0 },
-            end: Point3D { x: 1.0, y: -1.0, z: -1.0 },
-        },
-        Vertice {
-            start: Point3D { x: 1.0, y: 1.0, z: 1.0 },
-            end: Point3D { x: 1.0, y: 1.0, z: -1.0 },
-        },
-        Vertice {
-            start: Point3D { x: -1.0, y: 1.0, z: 1.0 },
-            end: Point3D { x: -1.0, y: 1.0, z: -1.0 },
-        },
-    ];
-    all_cubes.push(cube);
+    //let mut rotation = 0.0;
+
+    fn move_player(x: &mut f64, y: &mut f64, z: &mut f64, camxrot: f64, dir: i8) {
+        if dir == 0 {
+            let r = rotate_2d(&Point2D {x:0.0, y:5.0}, camxrot);
+            *x += r.x;
+            *z += r.y;
+        } else if dir == 1 {
+            let r = rotate_2d(&Point2D {x:5.0, y:0.0}, camxrot);
+            *x += r.x;
+            *z += r.y;
+        } else if dir == 2 {
+            let r = rotate_2d(&Point2D {x:0.0, y:-5.0}, camxrot);
+            *x += r.x;
+            *z += r.y;
+        } else if dir == 3 {
+            let r = rotate_2d(&Point2D {x:-5.0, y:0.0}, camxrot);
+            *x += r.x;
+            *z += r.y;
+        }
+    }    
 
     while let Some(event) = window.next() {
         if let Some(Button::Keyboard(key)) = event.press_args() {
             match key {
-                Key::W => y -= 1.0,
-                Key::A => x -= 1.0,
-                Key::S => y += 1.0,
-                Key::D => x += 1.0,
+                Key::Right => camxrot -= 0.05,
+                Key::Left => camxrot += 0.05,
+                Key::Up => camyrot -= 0.1,
+                Key::Down => camyrot += 0.1,
+                Key::W => move_player(&mut x, &mut y, &mut z, camxrot, 2),
+                Key::A => move_player(&mut x, &mut y, &mut z, camxrot, 1),
+                Key::S => move_player(&mut x, &mut y, &mut z, camxrot, 0),
+                Key::D => move_player(&mut x, &mut y, &mut z, camxrot, 3),
                 _ => {}
             }
         }
 
         window.draw_2d(&event, |context, graphics, _| {
             clear([1.0; 4], graphics);
-            
-            rotation = x * 0.01;
 
-            for cube in all_cubes.iter() {
-                for vertice in cube.vertices.iter() {
-                    let start = projection(&rotate_x(&rotate_y(&vertice.start, rotation), rotation));
-                    let end = projection(&rotate_x(&rotate_y(&vertice.end, rotation), rotation));
-                    line([0.0, 0.0, 0.0, 1.0], 1.0, [start.x, start.y, end.x, end.y], context.transform, graphics);
+            for c_x in -8..8 {
+                for c_z in -8..8 {
+                    cube(c_x as f64 * -100.0, 0.0, c_z as f64 * -100.0, x, y, z, camxrot, camyrot, context, graphics);
                 }
             }
+
+            //cube(0.0, 0.0, 0.0, x, y, z, camxrot, camyrot, context, graphics);
+            //line([0.0, 0.0, 1.0, 1.0], 1.0, [1.0, 0.0, 0.0, 1.0], context.transform, graphics);
         });
     }
 }

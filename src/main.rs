@@ -1,6 +1,7 @@
 extern crate piston_window;
 
 use piston_window::*;
+use std::collections::HashSet;
 
 fn main() {
     struct Point3D {
@@ -56,7 +57,7 @@ fn main() {
             let p1 = projection(&p1);
             let p2 = projection(&p2);
 
-            line([0.0, 0.0, 0.0, 1.0], 1.0, [p1.x, p1.y, p2.x, p2.y], context.transform, graphics);
+            line([0.0, 0.0, 0.0, 1.0], 0.5, [p1.x, p1.y, p2.x, p2.y], context.transform, graphics);
         }
     }
     fn draw_plane(p1: &Point3D, p2: &Point3D, p3: &Point3D, p4: &Point3D, x: f64, y: f64, z: f64, camxrot: f64, camyrot: f64, context: Context, graphics: &mut G2d) {
@@ -73,13 +74,13 @@ fn main() {
         polygon([0.0, 1.0, 0.0, 1.0], &[[p1.x, p1.y], [p2.x, p2.y], [p3.x, p3.y], [p4.x, p4.y]], context.transform, graphics);
     }
     fn cube(cube_x: f64, cube_y: f64, cube_z: f64, x: f64, y: f64, z: f64, camxrot: f64, camyrot: f64, context: Context, graphics: &mut G2d) {
-        draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
+        /*draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
         draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
         draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
         draw_plane(&Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
         draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
         draw_plane(&Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, &Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z + 50.0}, x, y, z, camxrot, camyrot, context, graphics);
-        
+        **/
 
         draw_line(&Point3D {x: cube_x + 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y + 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
         draw_line(&Point3D {x: cube_x + 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, &Point3D {x: cube_x - 50.0, y: cube_y - 50.0, z: cube_z - 50.0}, x, y, z, camxrot, camyrot, context, graphics);
@@ -102,15 +103,19 @@ fn main() {
     const FOV: i32 = 400;
     const ZCLIPDIST: f64 = 3.0;
 
+    const PI: f64 = std::f64::consts::PI;
+
     let mut window: PistonWindow = WindowSettings::new("Rust Craft", [WINDOW_X as u32, WINDOW_Y as u32])
         .exit_on_esc(true).build().unwrap();
 
     let mut x = 0.0;
-    let mut y = 100.0;
+    let mut y = 200.0;
     let mut z = 400.0;
 
-    let mut camxrot = 0.0;
-    let mut camyrot = 0.0;
+    let mut camxrot: f64 = 0.0;
+    let mut camyrot: f64 = 0.0;
+
+    let mut pressed_keys = HashSet::new();
 
     //let mut rotation = 0.0;
 
@@ -136,17 +141,33 @@ fn main() {
 
     while let Some(event) = window.next() {
         if let Some(Button::Keyboard(key)) = event.press_args() {
-            match key {
-                Key::Right => camxrot -= 0.05,
-                Key::Left => camxrot += 0.05,
-                Key::Up => camyrot -= 0.1,
-                Key::Down => camyrot += 0.1,
-                Key::W => move_player(&mut x, &mut y, &mut z, camxrot, 2),
-                Key::A => move_player(&mut x, &mut y, &mut z, camxrot, 1),
-                Key::S => move_player(&mut x, &mut y, &mut z, camxrot, 0),
-                Key::D => move_player(&mut x, &mut y, &mut z, camxrot, 3),
-                _ => {}
+            if let Some(Button::Keyboard(key)) = event.press_args() {
+                pressed_keys.insert(key);
             }
+    
+            if let Some(Button::Keyboard(key)) = event.release_args() {
+                pressed_keys.remove(&key);
+            }
+
+            for &key in pressed_keys.iter() {
+                match key {
+                    Key::Right => camxrot -= 0.05,
+                    Key::Left => camxrot += 0.05,
+                    Key::Up => camyrot -= 0.1,
+                    Key::Down => camyrot += 0.1,
+                    Key::W => move_player(&mut x, &mut y, &mut z, camxrot, 2),
+                    Key::A => move_player(&mut x, &mut y, &mut z, camxrot, 1),
+                    Key::S => move_player(&mut x, &mut y, &mut z, camxrot, 0),
+                    Key::D => move_player(&mut x, &mut y, &mut z, camxrot, 3),
+                    _ => {}
+                }
+            }
+
+            camxrot = camxrot % (2.0 * PI);
+            camyrot = camyrot.max(-1.5).min(1.5);
+
+        } else {
+            pressed_keys.clear();
         }
 
         window.draw_2d(&event, |context, graphics, _| {

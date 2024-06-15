@@ -1,7 +1,11 @@
 extern crate piston_window;
+extern crate noise;
 
+use noise::{NoiseFn, Perlin, Seedable};
 use piston_window::*;
 use std::env;
+
+mod generation;
 
 const WIDTH: u16 = 640;
 const HEIGHT: u16 = 480;
@@ -10,14 +14,16 @@ const CY: f64 = HEIGHT as f64 / 2.0;
 const FOV: f32 = 90.0/180.0*std::f32::consts::PI * 0.75;
 const HALF_FOV: f32 = FOV / 2.0;
 const MINZ: f64 = 0.1;
+pub const CHUNK_RENDER_DIST: u8 = 1; //chunk size is 16x16
+pub const SEED: u32 = 91224;
 
 #[derive(Copy, Clone)]
-struct Double {
+pub struct Double {
     x: f64,
     y: f64,
 }
 #[derive(Copy, Clone)]
-struct Triple {
+pub struct Triple {
     x: f64,
     y: f64,
     z: f64,
@@ -70,6 +76,7 @@ struct Cam {
     rot: Double,
     rot_x: Double,
     rot_y: Double,
+    disp: Double,
 }
 impl Cam {
     fn update_rot(&mut self) {
@@ -102,30 +109,42 @@ impl Cam {
                 Key::W => {
                     self.pos.x += x;
                     self.pos.z += z;
+                    self.disp.x += x;
+                    self.disp.y += z;
                 }
                 Key::S => {
                     self.pos.x -= x;
                     self.pos.z -= z;
+                    self.disp.x -= x;
+                    self.disp.y -= z;
                 }
                 Key::A => {
                     self.pos.x -= z;
                     self.pos.z += x;
+                    self.disp.x -= z;
+                    self.disp.y += x;
                 }
                 Key::D => {
                     self.pos.x += z;
                     self.pos.z -= x;
+                    self.disp.x += z;
+                    self.disp.y -= x;
                 }
                 _ => {}
             }
         }
-        println!("x: {}, y: {}", self.rot.x, self.rot.y);
         self.rot.x = self.rot.x.max(-1.5).min(1.5);
         self.rot.y = self.rot.y % (std::f64::consts::PI * 2.0);
+
+        self.pos.x = (self.pos.x * 100.0).round() / 100.0;
+        self.pos.y = (self.pos.y * 100.0).round() / 100.0;
+        self.pos.z = (self.pos.z * 100.0).round() / 100.0;
+        self.rot.x = (self.rot.x * 100.0).round() / 100.0;
+        self.rot.y = (self.rot.y * 100.0).round() / 100.0;
     }
 
 }
 
-//#[derive(Clone)]
 struct Cube {
     //pos: Triple,
     verts: [Triple; 8],
@@ -180,7 +199,6 @@ fn list_of_coords(ve: Vec<Double>) -> Vec<[f64; 2]> {
     }
     arr
 }
-
 fn calc_depth_vec_helper(verts: Vec<Triple>) -> f64 {
     let mut sum_of_squares = 0.0;
 
@@ -197,7 +215,7 @@ fn calc_depth_vec_helper(verts: Vec<Triple>) -> f64 {
 }
 
 fn main() {
-    env::set_var("RUST_BACKTRACE", "full");
+    env::set_var("RUST_BACKTRACE", "1");
 
     let proj_y: f64 = (CY) / (f64::tan(HALF_FOV as f64) as f64);
     let proj_x: f64 = (CX) / (f64::tan(HALF_FOV as f64) as f64) / (WIDTH as f64 / HEIGHT as f64);
@@ -207,20 +225,24 @@ fn main() {
         rot: Double { x: 0.0, y: 0.0 },
         rot_x: Double { x: 0.0, y: 0.0 },
         rot_y: Double { x: 0.0, y: 0.0 },
+        disp: Double { x: 0.0, y: 0.0 },
     };
     cam.update_rot();
 
-    let pacman_points = [[0,0]];
-    let mut cubes: Vec<Cube> = Vec::new();
-    for i in pacman_points {cubes.push(init_cube(Triple { x: i[0] as f64, y: 0.0, z: i[1] as f64 }))}
-
     let mut window: PistonWindow = WindowSettings::new("Rust Craft", [WIDTH as u32, HEIGHT as u32])
         .exit_on_esc(true).build().unwrap();
-  
+
+    let perlin_generator = Perlin::new().set_seed(SEED);
+    let mut cubes: Vec<Cube> = generation::generate_cubes(cam.pos, perlin_generator);
 
     while let Some(event) = window.next() {
         cam.events(&event);
         cam.update_rot();
+
+        if (cam.disp.x > generation::CHUNK_SIZE as f64 || cam.disp.x < -generation::CHUNK_SIZE as f64) || (cam.disp.y > generation::CHUNK_SIZE as f64 || cam.disp.y < -generation::CHUNK_SIZE as f64) {
+            cubes = generation::generate_cubes(cam.pos, perlin_generator);
+            cam.disp = Double { x: 0.0, y: 0.0 };
+        }
 
         window.draw_2d(&event, |context, graphics, _| {
             clear([1.0; 4], graphics);
@@ -229,7 +251,7 @@ fn main() {
             let mut face_color: Vec<[f32; 4]> = Vec::new();
             let mut depth: Vec<f64> = Vec::new();
 
-            for obj in cubes.iter_mut() {
+            for obj in cubes.iter() {
                 let mut vert_list: [Triple; 8] = [Triple { x: 0.0, y: 0.0, z: 0.0 }; 8];
                 for n in 0..8 {
                     vert_list[n] = get_3d(obj.verts[n], cam.pos, cam.rot_y, cam.rot_x);
@@ -294,6 +316,7 @@ fn main() {
                 }
             }
 
-            });
+            println!("x: {}, y: {}, z: {}", cam.pos.x, cam.pos.y, cam.pos.z);
+        });
     }
 }

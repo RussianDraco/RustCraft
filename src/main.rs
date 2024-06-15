@@ -238,21 +238,27 @@ fn main() {
                         verts.push(vert_list[obj.faces[f][n] as usize]);
                     }
 
-                    let mut i: usize = 0;
-                    while i < verts.len() {
-                        if verts[i].z < MINZ {
+                    let mut i: i32 = 0;
+                    while i < verts.len() as i32 {
+                        if verts[i as usize].z < MINZ {
                             let mut sides: Vec<Triple> = Vec::new();
-                            let l = verts[i - 1];
-                            let r = verts[(i + 1) % verts.len()];
+                            let l = verts[{
+                                if i == 0 {
+                                    verts.len() - 1
+                                } else {
+                                    (i - 1) as usize
+                                }
+                            }];
+                            let r = verts[((i as usize + 1) % verts.len()) as usize];
                             if l.z > MINZ {
-                                sides.push(get_z(verts[i], l, MINZ));
+                                sides.push(get_z(verts[i as usize], l, MINZ));
                             }
                             if r.z > MINZ {
-                                sides.push(get_z(verts[i], r, MINZ));
+                                sides.push(get_z(verts[i as usize], r, MINZ));
                             }
                             
-                            verts = verts[..i].iter().chain(sides.iter()).chain(verts[i+1..].iter()).cloned().collect();
-                            i += sides.len() - 1;
+                            verts = verts[..(i as usize)].iter().chain(sides.iter()).chain(verts[((i+1) as usize)..].iter()).cloned().collect();
+                            i += (sides.len() as i32 - 1);
                         }
                         i += 1;
                     }

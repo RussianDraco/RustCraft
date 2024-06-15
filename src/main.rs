@@ -7,9 +7,9 @@ const WIDTH: u16 = 640;
 const HEIGHT: u16 = 480;
 const CX: f64 = WIDTH as f64 / 2.0;
 const CY: f64 = HEIGHT as f64 / 2.0;
-const FOV: f32 = 90.0/180.0*std::f32::consts::PI;
+const FOV: f32 = 90.0/180.0*std::f32::consts::PI * 0.75;
 const HALF_FOV: f32 = FOV / 2.0;
-const MINZ: f64 = 1.0;
+const MINZ: f64 = 0.1;
 
 #[derive(Copy, Clone)]
 struct Double {
@@ -118,6 +118,9 @@ impl Cam {
                 _ => {}
             }
         }
+        println!("x: {}, y: {}", self.rot.x, self.rot.y);
+        self.rot.x = self.rot.x.max(-1.5).min(1.5);
+        self.rot.y = self.rot.y % (std::f64::consts::PI * 2.0);
     }
 
 }
@@ -170,9 +173,9 @@ fn triple_index(triple: Triple, index: u8) -> f64 {
         _ => 0.0,
     }
 }
-fn list_of_coords(ve : Vec<Double>) -> [[f64; 2]; 4] {
-    let mut arr: [[f64; 2]; 4] = [[0.0; 2]; 4];
-    for i in 0..4 {
+fn list_of_coords(ve: Vec<Double>) -> Vec<[f64; 2]> {
+    let mut arr: Vec<[f64; 2]> = vec![[0.0; 2]; ve.len()];
+    for i in 0..ve.len() {
         arr[i] = [ve[i].x, ve[i].y];
     }
     arr
@@ -200,7 +203,7 @@ fn main() {
     let proj_x: f64 = (CX) / (f64::tan(HALF_FOV as f64) as f64) / (WIDTH as f64 / HEIGHT as f64);
 
     let mut cam = Cam {
-        pos: Triple { x: 0.0, y: 0.0, z: -5.0 },
+        pos: Triple { x: 0.0, y: -1.0, z: -5.0 },
         rot: Double { x: 0.0, y: 0.0 },
         rot_x: Double { x: 0.0, y: 0.0 },
         rot_y: Double { x: 0.0, y: 0.0 },
@@ -258,7 +261,7 @@ fn main() {
                             }
                             
                             verts = verts[..(i as usize)].iter().chain(sides.iter()).chain(verts[((i+1) as usize)..].iter()).cloned().collect();
-                            i += (sides.len() as i32 - 1);
+                            i += sides.len() as i32 - 1;
                         }
                         i += 1;
                     }
@@ -285,6 +288,10 @@ fn main() {
                 let color = face_color[i];
 
                 polygon(color, &list_of_coords(face.to_vec()), context.transform, graphics);
+                for i in 0..face.len() {
+                    let j = (i + 1) % face.len();
+                    line([0.0, 0.0, 0.0, 1.0], 1.0, [face[i].x, face[i].y, face[j].x, face[j].y], context.transform, graphics);
+                }
             }
 
             });

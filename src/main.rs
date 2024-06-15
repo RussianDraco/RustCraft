@@ -5,8 +5,10 @@ use noise::{NoiseFn, Perlin, Seedable};
 use piston_window::*;
 use std::env;
 use std::time::{Duration, Instant};
+use std::collections::HashMap;
 
 mod generation;
+mod texture;
 
 const WIDTH: u16 = 640;
 const HEIGHT: u16 = 480;
@@ -31,12 +33,6 @@ pub struct Triple {
     z: f64,
 }
 
-fn rotate_2d(pos: Double, rot: Double) -> Double {
-    Double {
-        x: pos.x * rot.y - pos.y * rot.x,
-        y: pos.y * rot.y + pos.x * rot.x,
-    }
-}
 fn get_2d(v: Triple, proj_y: f64, proj_x: f64) -> Double {
     Double {
         x: CX + (v.x / v.z * proj_x),
@@ -48,13 +44,14 @@ fn get_3d(v: Triple, cam_pos: Triple, cam_rot_y: Double, cam_rot_x: Double) -> T
     let y = v.y - cam_pos.y;
     let z = v.z - cam_pos.z;
 
-    let xz = rotate_2d(Double {x :x, y: z}, cam_rot_y);
-    let x = xz.x; let z = xz.y;
-    let yz = rotate_2d(Double {x: y, y: z}, cam_rot_x);
-    let y = yz.x; let z = yz.y;
+    let xz_x = x * cam_rot_y.y - z * cam_rot_y.x;
+    let xz_z = z * cam_rot_y.y + x * cam_rot_y.x;
+    let yz_y = y * cam_rot_x.y - xz_z * cam_rot_x.x;
+    let yz_z = xz_z * cam_rot_x.y + y * cam_rot_x.x;
 
-    Triple { x: x, y: y, z: z }
+    Triple { x: xz_x, y: yz_y, z: yz_z }
 }
+
 fn get_z(a: Triple, b: Triple, new_z: f64) -> Triple {
     if a.z == b.z || new_z < a.z || new_z > b.z {
         return Triple { x: 0.0, y: 0.0, z: 0.0 };
@@ -195,12 +192,12 @@ fn init_cube(p: Triple) -> Cube{
         //pos: p,
         verts: _verts,
         faces: [
-            [0,1,2,3],
-            [4,5,6,7],
-            [0,1,5,4],
-            [2,3,7,6],
-            [0,3,7,4],
-            [1,2,6,5]
+            [0,1,2,0],
+            [0,5,6,0],
+            [0,1,5,0],
+            [0,3,7,0],
+            [0,3,7,0],
+            [0,2,6,0]
         ],
         colors: [
             [0.0, 1.0, 0.0, 1.0],
@@ -231,16 +228,14 @@ fn calc_depth_vec_helper(verts: Vec<Triple>) -> f64 {
     let mut sum_of_squares = 0.0;
 
     for i in 0..3 {
-        let mut sum_i = 0.0;
-        for v in &verts {
-            sum_i += triple_index(*v, i) / verts.len() as f64;
-        }
-
+        let sum_i: f64 = verts.iter().map(|v| triple_index(*v, i) / verts.len() as f64).sum();
         sum_of_squares += sum_i * sum_i;
     }
 
     sum_of_squares
 }
+
+
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
@@ -265,6 +260,7 @@ fn main() {
     let mut cubes: Vec<Cube> = generation::generate_cubes(cam.pos, perlin_generator);
     let frame_duration = Duration::from_secs_f64(1.0 / TARGET_FPS as f64);
     let mut previous_frame_time = Instant::now();
+    let textures: Vec<[[[f32; 4]; 16]; 16]> = texture::texture_dict();
 
     while let Some(event) = window.next() {
         let current_frame_time = Instant::now();
@@ -342,8 +338,20 @@ fn main() {
             for i in order {
                 let face = &face_list[i];
                 let color = face_color[i];
+                let mut texture: [[[f32; 4]; 16]; 16];
+                let mut use_texture = false;
+                if color[3] == 0.0 {
+                    texture = textures[color[0] as usize];
+                    use_texture = true;
+                }
 
-                polygon(color, &list_of_coords(face.to_vec()), context.transform, graphics);
+                if use_texture {
+                    polygon(color, &list_of_coords(face.to_vec()), context.transform, graphics);
+                }
+                else {
+                    polygon(color, &list_of_coords(face.to_vec()), context.transform, graphics);
+                }
+
                 for i in 0..face.len() {
                     let j = (i + 1) % face.len();
                     line([0.0, 0.0, 0.0, 1.0], 1.0, [face[i].x, face[i].y, face[j].x, face[j].y], context.transform, graphics);

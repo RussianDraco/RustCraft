@@ -1,6 +1,7 @@
 extern crate piston_window;
 
 use piston_window::*;
+use std::env;
 
 const WIDTH: u16 = 640;
 const HEIGHT: u16 = 480;
@@ -87,16 +88,16 @@ impl Cam {
             let z = f64::cos(self.rot.y);
             match key {
                 Key::Up => {
-                    self.rot.x += 0.1;
-                }
-                Key::Down => {
                     self.rot.x -= 0.1;
                 }
+                Key::Down => {
+                    self.rot.x += 0.1;
+                }
                 Key::Left => {
-                    self.rot.y += 0.1;
+                    self.rot.y -= 0.1;
                 }
                 Key::Right => {
-                    self.rot.y -= 0.1;
+                    self.rot.y += 0.1;
                 }
                 Key::W => {
                     self.pos.x += x;
@@ -193,6 +194,8 @@ fn calc_depth_vec_helper(verts: Vec<Triple>) -> f64 {
 }
 
 fn main() {
+    env::set_var("RUST_BACKTRACE", "full");
+
     let proj_y: f64 = (CY) / (f64::tan(HALF_FOV as f64) as f64);
     let proj_x: f64 = (CX) / (f64::tan(HALF_FOV as f64) as f64) / (WIDTH as f64 / HEIGHT as f64);
 

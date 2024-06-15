@@ -3,6 +3,13 @@
 version = 3
 
 [[package]]
+name = "RustCraft"
+version = "0.1.0"
+dependencies = [
+ "piston_window",
+]
+
+[[package]]
 name = "ab_glyph_rasterizer"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -595,13 +602,6 @@ checksum = "6585fd95e7bb50d6cc31e20d4cf9afb4e2ba16c5846fc76793f11218da9c475b"
 dependencies = [
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "minecraft"
-version = "0.1.0"
-dependencies = [
- "piston_window",
 ]
 
 [[package]]

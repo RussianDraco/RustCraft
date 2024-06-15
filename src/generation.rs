@@ -1,7 +1,7 @@
 use crate::*;
 
-pub const CHUNK_SIZE: f64 = 6.0;
-const CHUNK_HEIGHT: f64 = 10.0;
+pub const CHUNK_SIZE: f64 = 10.0;
+const CHUNK_HEIGHT: f64 = 5.0;
 const NORM_CHUNK_REND_DIST: i32 = CHUNK_RENDER_DIST as i32;
 const PERLIN_SOFTENER: f64 = 15.0;
 

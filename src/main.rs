@@ -4,6 +4,7 @@ extern crate noise;
 use noise::{NoiseFn, Perlin, Seedable};
 use piston_window::*;
 use std::env;
+use std::time::{Duration, Instant};
 
 mod generation;
 
@@ -16,6 +17,7 @@ const HALF_FOV: f32 = FOV / 2.0;
 const MINZ: f64 = 0.1;
 pub const CHUNK_RENDER_DIST: u8 = 1; //chunk size is 16x16
 pub const SEED: u32 = 91224;
+const TARGET_FPS: u32 = 45;
 
 #[derive(Copy, Clone)]
 pub struct Double {
@@ -77,6 +79,7 @@ struct Cam {
     rot_x: Double,
     rot_y: Double,
     disp: Double,
+    keys: [bool; 8],
 }
 impl Cam {
     fn update_rot(&mut self) {
@@ -89,50 +92,75 @@ impl Cam {
             y: f64::cos(self.rot.y),
         };
     }
-    fn events(&mut self, event: &Event) {
+    fn events(&mut self, event: &Event, dt: f64) {    
         if let Some(Button::Keyboard(key)) = event.press_args() {
-            let x = f64::sin(self.rot.y);
-            let z = f64::cos(self.rot.y);
             match key {
-                Key::Up => {
-                    self.rot.x -= 0.1;
-                }
-                Key::Down => {
-                    self.rot.x += 0.1;
-                }
-                Key::Left => {
-                    self.rot.y -= 0.1;
-                }
-                Key::Right => {
-                    self.rot.y += 0.1;
-                }
-                Key::W => {
-                    self.pos.x += x;
-                    self.pos.z += z;
-                    self.disp.x += x;
-                    self.disp.y += z;
-                }
-                Key::S => {
-                    self.pos.x -= x;
-                    self.pos.z -= z;
-                    self.disp.x -= x;
-                    self.disp.y -= z;
-                }
-                Key::A => {
-                    self.pos.x -= z;
-                    self.pos.z += x;
-                    self.disp.x -= z;
-                    self.disp.y += x;
-                }
-                Key::D => {
-                    self.pos.x += z;
-                    self.pos.z -= x;
-                    self.disp.x += z;
-                    self.disp.y -= x;
-                }
-                _ => {}
+                Key::W => self.keys[0] = true,
+                Key::A => self.keys[1] = true,
+                Key::S => self.keys[2] = true,
+                Key::D => self.keys[3] = true,
+                Key::Up => self.keys[4] = true,
+                Key::Down => self.keys[5] = true,
+                Key::Left => self.keys[6] = true,
+                Key::Right => self.keys[7] = true,
+                _ => (),
             }
         }
+        if let Some(Button::Keyboard(key)) = event.release_args() {
+            match key {
+                Key::W => self.keys[0] = false,
+                Key::A => self.keys[1] = false,
+                Key::S => self.keys[2] = false,
+                Key::D => self.keys[3] = false,
+                Key::Up => self.keys[4] = false,
+                Key::Down => self.keys[5] = false,
+                Key::Left => self.keys[6] = false,
+                Key::Right => self.keys[7] = false,
+                _ => (),
+            }
+        }
+        
+        let s = 10.0 * dt;
+        let ss = 2.0 * dt;
+        let x = s * f64::sin(self.rot.y);
+        let z = s * f64::cos(self.rot.y);
+        if self.keys[0] {
+            self.pos.x += x;
+            self.pos.z += z;
+            self.disp.x += x;
+            self.disp.y += z;
+        }
+        if self.keys[2] {
+            self.pos.x -= x;
+            self.pos.z -= z;
+            self.disp.x -= x;
+            self.disp.y -= z;
+        }
+        if self.keys[1] {
+            self.pos.x -= z;
+            self.pos.z += x;
+            self.disp.x -= z;
+            self.disp.y += x;
+        }
+        if self.keys[3] {
+            self.pos.x += z;
+            self.pos.z -= x;
+            self.disp.x += z;
+            self.disp.y -= x;
+        }
+        if self.keys[4] {
+            self.rot.x -= ss;
+        }
+        if self.keys[5] {
+            self.rot.x += ss;
+        }
+        if self.keys[6] {
+            self.rot.y -= ss;
+        }
+        if self.keys[7] {
+            self.rot.y += ss;
+        }
+
         self.rot.x = self.rot.x.max(-1.5).min(1.5);
         self.rot.y = self.rot.y % (std::f64::consts::PI * 2.0);
 
@@ -175,12 +203,12 @@ fn init_cube(p: Triple) -> Cube{
             [1,2,6,5]
         ],
         colors: [
-            [1.0, 0.0, 0.0, 1.0],
             [0.0, 1.0, 0.0, 1.0],
-            [0.0, 0.0, 1.0, 1.0],
-            [1.0, 1.0, 0.0, 1.0],
-            [1.0, 0.0, 1.0, 1.0],
-            [0.0, 1.0, 1.0, 1.0],
+            [0.0, 1.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0, 1.0],
         ]
     }
 }
@@ -226,6 +254,7 @@ fn main() {
         rot_x: Double { x: 0.0, y: 0.0 },
         rot_y: Double { x: 0.0, y: 0.0 },
         disp: Double { x: 0.0, y: 0.0 },
+        keys: [false; 8],
     };
     cam.update_rot();
 
@@ -234,9 +263,14 @@ fn main() {
 
     let perlin_generator = Perlin::new().set_seed(SEED);
     let mut cubes: Vec<Cube> = generation::generate_cubes(cam.pos, perlin_generator);
+    let frame_duration = Duration::from_secs_f64(1.0 / TARGET_FPS as f64);
+    let mut previous_frame_time = Instant::now();
 
     while let Some(event) = window.next() {
-        cam.events(&event);
+        let current_frame_time = Instant::now();
+        let dt = (current_frame_time - previous_frame_time).as_secs_f64();
+        previous_frame_time = current_frame_time;
+        cam.events(&event, dt);
         cam.update_rot();
 
         if (cam.disp.x > generation::CHUNK_SIZE as f64 || cam.disp.x < -generation::CHUNK_SIZE as f64) || (cam.disp.y > generation::CHUNK_SIZE as f64 || cam.disp.y < -generation::CHUNK_SIZE as f64) {
@@ -318,5 +352,10 @@ fn main() {
 
             println!("x: {}, y: {}, z: {}", cam.pos.x, cam.pos.y, cam.pos.z);
         });
+
+        let elapsed_time = current_frame_time.elapsed();
+        if elapsed_time < frame_duration {
+            std::thread::sleep(frame_duration - elapsed_time);
+        }
     }
 }
